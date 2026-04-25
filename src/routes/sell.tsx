@@ -116,7 +116,7 @@ function SellPage() {
             <p className="text-sm font-semibold text-secondary">Seller Dashboard</p>
             <h1 className="text-4xl font-bold tracking-tight">List an item in minutes.</h1>
             <p className="text-muted-foreground">
-              Add a clear photo URL, set a fair price, and let buyers message you directly on WhatsApp.
+              Add a small product photo, set a fair price, and let buyers message you directly on WhatsApp.
             </p>
             <div className="campus-card rounded-3xl border border-border bg-card p-5">
               <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-muted text-center">
@@ -126,7 +126,7 @@ function SellPage() {
                   <div className="space-y-2 px-6">
                     <Camera className="mx-auto size-9 text-secondary" />
                     <p className="font-medium">Photo preview</p>
-                    <p className="text-sm text-muted-foreground">Paste a product image URL below.</p>
+                    <p className="text-sm text-muted-foreground">Upload a JPG, PNG, or WebP under 1 MB.</p>
                   </div>
                 )}
               </div>
@@ -236,17 +236,17 @@ function SellPage() {
               </label>
 
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-sm font-medium">Photo URL</span>
-                <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border bg-muted p-3 text-sm font-medium">
+                <span className="text-sm font-medium">Photo upload</span>
+                <div className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-border bg-muted p-3 text-sm font-medium transition hover:border-secondary hover:text-secondary">
                   <UploadCloud className="size-5 shrink-0 text-secondary" />
                   <input
-                    value={imageUrl}
-                    onChange={(event) => setImageUrl(event.target.value)}
-                    type="url"
-                    placeholder="https://example.com/item-photo.jpg"
-                    className="h-9 w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                    onChange={handlePhotoChange}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-secondary-foreground"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">Maximum 1 MB.</p>
               </label>
             </div>
 
