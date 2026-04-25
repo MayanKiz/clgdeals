@@ -1,26 +1,258 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Heart, Search, ShieldCheck, SlidersHorizontal, Sparkles, Upload } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { campusItems, categories, type CampusItem, type Category } from "@/data-campus-trade";
+import { useWatchlist } from "@/hooks/use-watchlist";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "CampusTrade — Student Marketplace" },
+      {
+        name: "description",
+        content: "Buy and sell lab gear, electronics, dorm decor, and textbooks with verified students on campus.",
+      },
+      { property: "og:title", content: "CampusTrade — Student Marketplace" },
+      {
+        property: "og:description",
+        content: "A hyper-local peer-to-peer marketplace for college students.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+type SortMode = "featured" | "low" | "high";
+
+function Index() {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<Category | "All">("All");
+  const [sort, setSort] = useState<SortMode>("featured");
+  const { isWatched, toggleWatchlist, watchlist } = useWatchlist();
+
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const matches = campusItems.filter((item) => {
+      const matchesQuery = [item.title, item.category, item.dorm, item.seller]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+      const matchesCategory = category === "All" || item.category === category;
+      return matchesQuery && matchesCategory;
+    });
+
+    return [...matches].sort((a, b) => {
+      if (sort === "low") return a.price - b.price;
+      if (sort === "high") return b.price - a.price;
+      return 0;
+    });
+  }, [category, query, sort]);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="min-h-screen bg-background text-foreground">
+      <section className="campus-hero border-b border-border">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8 lg:py-10">
+          <div className="flex flex-col justify-between gap-8">
+            <header className="flex items-center justify-between gap-4">
+              <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                  CT
+                </span>
+                <span>CampusTrade</span>
+              </Link>
+              <Button asChild variant="energetic" size="sm">
+                <Link to="/sell">
+                  <Upload /> Sell
+                </Link>
+              </Button>
+            </header>
+
+            <div className="max-w-3xl space-y-5 py-4 lg:py-10">
+              <Badge variant="trust" className="gap-1.5">
+                <ShieldCheck className="size-3.5" /> Verified student marketplace
+              </Badge>
+              <div className="space-y-3">
+                <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                  Trade campus essentials before the next lecture.
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  Find lab gear, textbooks, dorm upgrades, and electronics from students in nearby hostels and dorms.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-2 shadow-sm sm:flex-row">
+                <label className="relative flex min-h-12 flex-1 items-center">
+                  <Search className="absolute left-3 size-4 text-muted-foreground" />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search calculators, lamps, lab coats..."
+                    className="h-12 w-full rounded-xl bg-muted py-2 pl-10 pr-3 text-sm outline-none ring-ring transition focus:ring-2"
+                  />
+                </label>
+                <Button variant="energetic" className="h-12 rounded-xl">
+                  Search
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <aside className="campus-card campus-float hidden rounded-3xl border border-border bg-card p-5 lg:block">
+            <div className="overflow-hidden rounded-2xl bg-muted">
+              <img
+                src={campusItems[5].image}
+                alt="Noise cancelling headphones listed on CampusTrade"
+                className="h-56 w-full object-cover"
+              />
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Just listed near Oak Towers</p>
+                  <h2 className="text-xl font-semibold">{campusItems[5].title}</h2>
+                </div>
+                <span className="rounded-xl bg-secondary px-3 py-1 font-bold text-secondary-foreground">
+                  ${campusItems[5].price}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Sparkles className="size-4 text-secondary" /> Safe, quick campus handoffs
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
+        <FilterPanel category={category} sort={sort} onCategoryChange={setCategory} onSortChange={setSort} />
+
+        <div className="space-y-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-secondary">{filteredItems.length} campus finds</p>
+              <h2 className="text-2xl font-bold tracking-tight">Marketplace</h2>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Heart className="size-4 fill-accent text-accent" /> {watchlist.length} saved to watchlist
+            </div>
+          </div>
+
+          {filteredItems.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredItems.map((item) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  watched={isWatched(item.id)}
+                  onWatch={() => toggleWatchlist(item.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
+              <p className="text-lg font-semibold">No listings found</p>
+              <p className="mt-2 text-sm text-muted-foreground">Try a different keyword or category.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }
 
-function Index() {
-  return <PlaceholderIndex />;
+function FilterPanel({
+  category,
+  sort,
+  onCategoryChange,
+  onSortChange,
+}: {
+  category: Category | "All";
+  sort: SortMode;
+  onCategoryChange: (category: Category | "All") => void;
+  onSortChange: (sort: SortMode) => void;
+}) {
+  return (
+    <aside className="h-fit rounded-3xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-6">
+      <div className="mb-4 flex items-center gap-2 font-semibold">
+        <SlidersHorizontal className="size-4 text-secondary" /> Filters
+      </div>
+      <div className="space-y-5">
+        <div>
+          <p className="mb-2 text-sm font-medium">Category</p>
+          <div className="flex flex-wrap gap-2 lg:flex-col">
+            {["All", ...categories].map((item) => (
+              <button
+                key={item}
+                onClick={() => onCategoryChange(item as Category | "All")}
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left text-sm transition hover:border-secondary hover:text-secondary",
+                  category === item
+                    ? "border-secondary bg-secondary text-secondary-foreground hover:text-secondary-foreground"
+                    : "border-border bg-background text-foreground",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-medium">Sort by price</p>
+          <select
+            value={sort}
+            onChange={(event) => onSortChange(event.target.value as SortMode)}
+            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
+          >
+            <option value="featured">Featured</option>
+            <option value="low">Lowest first</option>
+            <option value="high">Highest first</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function ItemCard({ item, watched, onWatch }: { item: CampusItem; watched: boolean; onWatch: () => void }) {
+  return (
+    <article className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+      <Link to="/items/$itemId" params={{ itemId: item.id }} className="block">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+          <img
+            src={item.image}
+            alt={item.title}
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+          <Badge className="absolute left-3 top-3" variant={item.condition === "New" ? "success" : "secondary"}>
+            {item.condition}
+          </Badge>
+        </div>
+      </Link>
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Link to="/items/$itemId" params={{ itemId: item.id }} className="font-semibold hover:text-secondary">
+              {item.title}
+            </Link>
+            <p className="mt-1 text-sm text-muted-foreground">{item.dorm}</p>
+          </div>
+          <p className="text-lg font-bold">${item.price}</p>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <Badge variant="outline">{item.category}</Badge>
+          <button
+            onClick={onWatch}
+            aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:border-accent hover:text-accent"
+          >
+            <Heart className={cn("size-4", watched && "fill-accent text-accent")} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
 }
