@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TopProgressBar } from "@/components/top-progress-bar";
 import { categories, conditions, type Category, type Condition } from "@/data-campus-trade";
-import { createMarketplaceItem } from "@/lib/marketplace";
+import { createMarketplaceItem, uploadMarketplacePhoto } from "@/lib/marketplace";
 
 export const Route = createFileRoute("/sell")({
   head: () => ({
@@ -33,6 +33,7 @@ function SellPage() {
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +45,8 @@ function SellPage() {
     setIsSubmitting(true);
 
     try {
+      const uploadedImageUrl = photoFile ? await uploadMarketplacePhoto(photoFile) : null;
+
       await createMarketplaceItem({
         title: title.trim(),
         price: Number(price),
@@ -53,7 +56,7 @@ function SellPage() {
         seller: seller.trim(),
         phone: phone.replace(/[^0-9]/g, ""),
         description: description.trim(),
-        image_url: imageUrl.trim() || null,
+        image_url: uploadedImageUrl,
         status: "published",
         user_id: null,
       });
@@ -66,11 +69,31 @@ function SellPage() {
       setPhone("");
       setDescription("");
       setImageUrl("");
+      setPhotoFile(null);
     } catch {
       setError("Couldn’t publish this listing. Please check the details and try again.");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please upload a JPG, PNG, or WebP image.");
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      setError("Please keep the photo under 1 MB.");
+      return;
+    }
+
+    setError("");
+    setPhotoFile(file);
+    setImageUrl(URL.createObjectURL(file));
   }
 
   return (
