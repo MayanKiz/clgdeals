@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TopProgressBar } from "@/components/top-progress-bar";
 import { categories, conditions, type Category, type Condition } from "@/data-campus-trade";
-import { createMarketplaceItem } from "@/lib/marketplace";
+import { createMarketplaceItem, uploadMarketplacePhoto } from "@/lib/marketplace";
 
 export const Route = createFileRoute("/sell")({
   head: () => ({
@@ -33,6 +33,7 @@ function SellPage() {
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +45,8 @@ function SellPage() {
     setIsSubmitting(true);
 
     try {
+      const uploadedImageUrl = photoFile ? await uploadMarketplacePhoto(photoFile) : null;
+
       await createMarketplaceItem({
         title: title.trim(),
         price: Number(price),
@@ -53,7 +56,7 @@ function SellPage() {
         seller: seller.trim(),
         phone: phone.replace(/[^0-9]/g, ""),
         description: description.trim(),
-        image_url: imageUrl.trim() || null,
+        image_url: uploadedImageUrl,
         status: "published",
         user_id: null,
       });
@@ -66,11 +69,31 @@ function SellPage() {
       setPhone("");
       setDescription("");
       setImageUrl("");
+      setPhotoFile(null);
     } catch {
       setError("Couldn’t publish this listing. Please check the details and try again.");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please upload a JPG, PNG, or WebP image.");
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      setError("Please keep the photo under 1 MB.");
+      return;
+    }
+
+    setError("");
+    setPhotoFile(file);
+    setImageUrl(URL.createObjectURL(file));
   }
 
   return (
@@ -93,7 +116,7 @@ function SellPage() {
             <p className="text-sm font-semibold text-secondary">Seller Dashboard</p>
             <h1 className="text-4xl font-bold tracking-tight">List an item in minutes.</h1>
             <p className="text-muted-foreground">
-              Add a clear photo URL, set a fair price, and let buyers message you directly on WhatsApp.
+              Add a small product photo, set a fair price, and let buyers message you directly on WhatsApp.
             </p>
             <div className="campus-card rounded-3xl border border-border bg-card p-5">
               <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-muted text-center">
@@ -103,7 +126,7 @@ function SellPage() {
                   <div className="space-y-2 px-6">
                     <Camera className="mx-auto size-9 text-secondary" />
                     <p className="font-medium">Photo preview</p>
-                    <p className="text-sm text-muted-foreground">Paste a product image URL below.</p>
+                    <p className="text-sm text-muted-foreground">Upload a JPG, PNG, or WebP under 1 MB.</p>
                   </div>
                 )}
               </div>
@@ -213,17 +236,17 @@ function SellPage() {
               </label>
 
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-sm font-medium">Photo URL</span>
-                <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border bg-muted p-3 text-sm font-medium">
+                <span className="text-sm font-medium">Photo upload</span>
+                <div className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-border bg-muted p-3 text-sm font-medium transition hover:border-secondary hover:text-secondary">
                   <UploadCloud className="size-5 shrink-0 text-secondary" />
                   <input
-                    value={imageUrl}
-                    onChange={(event) => setImageUrl(event.target.value)}
-                    type="url"
-                    placeholder="https://example.com/item-photo.jpg"
-                    className="h-9 w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                    onChange={handlePhotoChange}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-secondary-foreground"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">Maximum 1 MB.</p>
               </label>
             </div>
 

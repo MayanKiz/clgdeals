@@ -40,3 +40,20 @@ export async function createMarketplaceItem(item: MarketplaceItemInsert) {
   if (error) throw error;
   return data;
 }
+
+export async function uploadMarketplacePhoto(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const filePath = `public/${crypto.randomUUID()}.${extension}`;
+
+  const { error } = await supabase.storage.from("marketplace-photos").upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+
+  if (error) throw error;
+
+  const { data } = await supabase.storage.from("marketplace-photos").createSignedUrl(filePath, 60 * 60 * 24 * 365);
+  if (!data?.signedUrl) throw new Error("Could not create photo display URL");
+
+  return data.signedUrl;
+}
