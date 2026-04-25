@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      marketplace_items: {
+        Row: {
+          category: string
+          condition: string
+          created_at: string
+          description: string
+          dorm: string
+          id: string
+          image_url: string | null
+          phone: string
+          price: number
+          seller: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          condition: string
+          created_at?: string
+          description: string
+          dorm: string
+          id?: string
+          image_url?: string | null
+          phone: string
+          price: number
+          seller: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          condition?: string
+          created_at?: string
+          description?: string
+          dorm?: string
+          id?: string
+          image_url?: string | null
+          phone?: string
+          price?: number
+          seller?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
