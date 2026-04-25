@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, Search, ShieldCheck, SlidersHorizontal, Sparkles, Upload } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Heart, ImageIcon, Search, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { campusItems, categories, type CampusItem, type Category } from "@/data-campus-trade";
-import { useWatchlist } from "@/hooks/use-watchlist";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TopProgressBar } from "@/components/top-progress-bar";
+import { categories, type Category } from "@/data-campus-trade";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -32,11 +35,52 @@ function Index() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "All">("All");
   const [sort, setSort] = useState<SortMode>("featured");
-  const { isWatched, toggleWatchlist, watchlist } = useWatchlist();
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
+  const [watchedItems, setWatchedItems] = useState<string[]>(() => readWatchlist());
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadItems(showSkeleton = false) {
+      if (showSkeleton) setIsLoading(true);
+      setIsRefreshing(true);
+      try {
+        const data = await fetchMarketplaceItems();
+        if (mounted) setItems(data);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    }
+
+    loadItems(true);
+
+    const channel = supabase
+      .channel("marketplace-feed")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "marketplace_items" },
+        () => loadItems(),
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("campus-trade-watchlist", JSON.stringify(watchedItems));
+  }, [watchedItems]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const matches = campusItems.filter((item) => {
+    const matches = items.filter((item) => {
       const matchesQuery = [item.title, item.category, item.dorm, item.seller]
         .join(" ")
         .toLowerCase()
@@ -48,12 +92,19 @@ function Index() {
     return [...matches].sort((a, b) => {
       if (sort === "low") return a.price - b.price;
       if (sort === "high") return b.price - a.price;
-      return 0;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [category, query, sort]);
+  }, [category, items, query, sort]);
+
+  function toggleWatchlist(itemId: string) {
+    setWatchedItems((current) =>
+      current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId],
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <TopProgressBar active={isLoading || isRefreshing} />
       <section className="campus-hero border-b border-border">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8 lg:py-10">
           <div className="flex flex-col justify-between gap-8">
@@ -101,26 +152,12 @@ function Index() {
           </div>
 
           <aside className="campus-card campus-float hidden rounded-3xl border border-border bg-card p-5 lg:block">
-            <div className="overflow-hidden rounded-2xl bg-muted">
-              <img
-                src={campusItems[5].image}
-                alt="Noise cancelling headphones listed on CampusTrade"
-                className="h-56 w-full object-cover"
-              />
+            <div className="flex h-56 w-full items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+              <ImageIcon className="size-12" />
             </div>
             <div className="mt-4 space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Just listed near Oak Towers</p>
-                  <h2 className="text-xl font-semibold">{campusItems[5].title}</h2>
-                </div>
-                <span className="rounded-xl bg-secondary px-3 py-1 font-bold text-secondary-foreground">
-                  ${campusItems[5].price}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="size-4 text-secondary" /> Safe, quick campus handoffs
-              </div>
+              <p className="text-sm text-muted-foreground">Live listings from students</p>
+              <h2 className="text-xl font-semibold">Fresh posts appear automatically</h2>
             </div>
           </aside>
         </div>
@@ -136,31 +173,43 @@ function Index() {
               <h2 className="text-2xl font-bold tracking-tight">Marketplace</h2>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Heart className="size-4 fill-accent text-accent" /> {watchlist.length} saved to watchlist
+              <Heart className="size-4 fill-accent text-accent" /> {watchedItems.length} saved to watchlist
             </div>
           </div>
 
-          {filteredItems.length > 0 ? (
+          {isLoading ? (
+            <ProductGridSkeleton />
+          ) : filteredItems.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredItems.map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
-                  watched={isWatched(item.id)}
+                  watched={watchedItems.includes(item.id)}
                   onWatch={() => toggleWatchlist(item.id)}
                 />
               ))}
             </div>
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-              <p className="text-lg font-semibold">No listings found</p>
-              <p className="mt-2 text-sm text-muted-foreground">Try a different keyword or category.</p>
+              <p className="text-lg font-semibold">No live listings yet</p>
+              <p className="mt-2 text-sm text-muted-foreground">Post the first item from the seller dashboard.</p>
             </div>
           )}
         </div>
       </section>
     </main>
   );
+}
+
+function readWatchlist() {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem("campus-trade-watchlist");
+    return stored ? (JSON.parse(stored) as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function FilterPanel({
@@ -206,7 +255,7 @@ function FilterPanel({
             onChange={(event) => onSortChange(event.target.value as SortMode)}
             className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
           >
-            <option value="featured">Featured</option>
+            <option value="featured">Newest first</option>
             <option value="low">Lowest first</option>
             <option value="high">Highest first</option>
           </select>
@@ -216,17 +265,43 @@ function FilterPanel({
   );
 }
 
-function ItemCard({ item, watched, onWatch }: { item: CampusItem; watched: boolean; onWatch: () => void }) {
+function ProductGridSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+          <Skeleton className="aspect-[4/3] w-full rounded-none" />
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-4 w-1/2" />
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-8 w-24 rounded-full" />
+              <Skeleton className="size-10 rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: boolean; onWatch: () => void }) {
   return (
     <article className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
       <Link to="/items/$itemId" params={{ itemId: item.id }} className="block">
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-          <img
-            src={item.image}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          />
+          {item.image_url ? (
+            <img
+              src={item.image_url}
+              alt={item.title}
+              loading="lazy"
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+              <ImageIcon className="size-10" />
+            </div>
+          )}
           <Badge className="absolute left-3 top-3" variant={item.condition === "New" ? "success" : "secondary"}>
             {item.condition}
           </Badge>
