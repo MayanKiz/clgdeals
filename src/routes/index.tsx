@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, ImageIcon, Search, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
+import { Heart, ImageIcon, Loader2, MessageCircle, Search, Send, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TopProgressBar } from "@/components/top-progress-bar";
 import { categories, type Category } from "@/data-campus-trade";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
+import {
+  createSiteMessage,
+  fetchMarketplaceItems,
+  fetchSiteMessages,
+  type MarketplaceItem,
+  type SiteMessage,
+} from "@/lib/marketplace";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -39,6 +45,10 @@ function Index() {
   const [watchedItems, setWatchedItems] = useState<string[]>(() => readWatchlist());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [messages, setMessages] = useState<SiteMessage[]>([]);
+  const [chatName, setChatName] = useState("Student");
+  const [chatMessage, setChatMessage] = useState("");
+  const [isChatSending, setIsChatSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +85,27 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
+    async function loadMessages() {
+      const data = await fetchSiteMessages();
+      if (mounted) setMessages(data);
+    }
+
+    loadMessages();
+
+    const channel = supabase
+      .channel("campus-chat")
+      .on("postgres_changes", { event: "*", schema: "public", table: "site_messages" }, () => loadMessages())
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem("campus-trade-watchlist", JSON.stringify(watchedItems));
   }, [watchedItems]);
 
@@ -100,6 +131,19 @@ function Index() {
     setWatchedItems((current) =>
       current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId],
     );
+  }
+
+  async function handleChatSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!chatMessage.trim()) return;
+    setIsChatSending(true);
+
+    try {
+      await createSiteMessage(chatName, chatMessage);
+      setChatMessage("");
+    } finally {
+      setIsChatSending(false);
+    }
   }
 
   return (
@@ -198,6 +242,15 @@ function Index() {
           )}
         </div>
       </section>
+      <CampusChat
+        name={chatName}
+        message={chatMessage}
+        messages={messages}
+        isSending={isChatSending}
+        onNameChange={setChatName}
+        onMessageChange={setChatMessage}
+        onSubmit={handleChatSubmit}
+      />
     </main>
   );
 }
