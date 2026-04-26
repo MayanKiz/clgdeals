@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, ImageIcon, Loader2, MessageCircle, Search, Send, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
+import { Heart, ImageIcon, Loader2, MessageCircle, Search, Send, ShieldCheck, SlidersHorizontal, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ function Index() {
   const [chatName, setChatName] = useState("Student");
   const [chatMessage, setChatMessage] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -247,6 +248,8 @@ function Index() {
         message={chatMessage}
         messages={messages}
         isSending={isChatSending}
+        isOpen={isChatOpen}
+        onOpenChange={setIsChatOpen}
         onNameChange={setChatName}
         onMessageChange={setChatMessage}
         onSubmit={handleChatSubmit}
@@ -343,6 +346,8 @@ function CampusChat({
   message,
   messages,
   isSending,
+  isOpen,
+  onOpenChange,
   onNameChange,
   onMessageChange,
   onSubmit,
@@ -351,14 +356,37 @@ function CampusChat({
   message: string;
   messages: SiteMessage[];
   isSending: boolean;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
   onNameChange: (name: string) => void;
   onMessageChange: (message: string) => void;
   onSubmit: (event: React.FormEvent) => void;
 }) {
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenChange(true)}
+        aria-label="Open campus chat"
+        className="fixed bottom-4 left-4 z-40 flex size-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg transition hover:scale-105"
+      >
+        <MessageCircle className="size-6" />
+      </button>
+    );
+  }
+
   return (
-    <section className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-3xl border border-border bg-card p-3 shadow-lg">
-      <div className="mb-3 flex items-center gap-2 font-semibold">
-        <MessageCircle className="size-4 text-secondary" /> Campus Chat
+    <section className="fixed bottom-4 left-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-3xl border border-border bg-card p-3 shadow-lg">
+      <div className="mb-3 flex items-center justify-between gap-2 font-semibold">
+        <span className="flex items-center gap-2"><MessageCircle className="size-4 text-secondary" /> Campus Chat</span>
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Close campus chat"
+          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
       </div>
       <div className="max-h-52 space-y-2 overflow-y-auto rounded-2xl bg-muted p-3">
         {messages.length > 0 ? (
@@ -427,7 +455,7 @@ function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: 
             </Link>
             <p className="mt-1 text-sm text-muted-foreground">{item.dorm}</p>
           </div>
-          <p className="text-lg font-bold">{item.price === 0 ? "Free" : `$${item.price}`}</p>
+          <p className="text-lg font-bold">{formatPrice(item.price)}</p>
         </div>
         <div className="flex items-center justify-between gap-3">
           <Badge variant="outline">{item.category}</Badge>
@@ -442,4 +470,8 @@ function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: 
       </div>
     </article>
   );
+}
+
+function formatPrice(price: number) {
+  return price === 0 ? "Free" : `₹${Math.round(price).toLocaleString("en-IN")}`;
 }
