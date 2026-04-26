@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Heart, ImageIcon, MapPin, MessageCircle, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowLeft, Heart, ImageIcon, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TopProgressBar } from "@/components/top-progress-bar";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchMarketplaceItem, fetchMarketplaceItems, updateMarketplaceItemStatus, type MarketplaceItem } from "@/lib/marketplace";
+import { fetchMarketplaceItem, fetchMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/items/$itemId")({
@@ -91,7 +91,6 @@ function ItemDetailPage() {
   const [nearbyItems, setNearbyItems] = useState<MarketplaceItem[]>([]);
   const [watchedItems, setWatchedItems] = useState<string[]>(() => readWatchlist());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [actionMessage, setActionMessage] = useState("");
   const message = encodeURIComponent(
     `Hi ${item.seller}, I saw your ${item.title} on CampusTrade. Is it still available?`,
   );
@@ -143,21 +142,6 @@ function ItemDetailPage() {
     );
   }
 
-  async function handleStatusChange(status: "sold" | "removed") {
-    setIsRefreshing(true);
-    setActionMessage("");
-
-    try {
-      const updatedItem = await updateMarketplaceItemStatus(item.id, status);
-      setItem(updatedItem);
-      setActionMessage(status === "sold" ? "Marked as sold." : "Listing removed from marketplace.");
-    } catch {
-      setActionMessage("Couldn’t update this listing. Try again.");
-    } finally {
-      setIsRefreshing(false);
-    }
-  }
-
   return (
     <main className="min-h-screen bg-background text-foreground">
       <TopProgressBar active={isRefreshing} />
@@ -196,7 +180,7 @@ function ItemDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <h1 className="text-4xl font-bold tracking-tight">{item.title}</h1>
                 <p className="rounded-2xl bg-secondary px-4 py-2 text-2xl font-bold text-secondary-foreground">
-                  {item.price === 0 ? "Free" : `$${item.price}`}
+                  {formatPrice(item.price)}
                 </p>
               </div>
               <p className="text-muted-foreground">{item.description}</p>
@@ -220,15 +204,6 @@ function ItemDetailPage() {
                   <MessageCircle /> Chat on WhatsApp
                 </a>
               </Button>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <Button type="button" variant="outline" className="rounded-xl" onClick={() => handleStatusChange("sold")}>
-                  <CheckCircle2 /> Mark sold
-                </Button>
-                <Button type="button" variant="destructive" className="rounded-xl" onClick={() => handleStatusChange("removed")}>
-                  <Trash2 /> Remove
-                </Button>
-              </div>
-              {actionMessage && <p className="mt-3 text-sm font-medium text-muted-foreground">{actionMessage}</p>}
             </section>
 
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
@@ -272,7 +247,7 @@ function ItemDetailPage() {
                       <p className="font-semibold group-hover:text-secondary">{nearby.title}</p>
                       <p className="text-sm text-muted-foreground">{nearby.dorm}</p>
                     </div>
-                    <p className="font-bold">{nearby.price === 0 ? "Free" : `$${nearby.price}`}</p>
+                    <p className="font-bold">{formatPrice(nearby.price)}</p>
                   </div>
                 </Link>
               ))}
@@ -282,6 +257,10 @@ function ItemDetailPage() {
       </div>
     </main>
   );
+}
+
+function formatPrice(price: number) {
+  return price === 0 ? "Free" : `₹${Math.round(price).toLocaleString("en-IN")}`;
 }
 
 function readWatchlist() {
