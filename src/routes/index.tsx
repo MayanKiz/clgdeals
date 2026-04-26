@@ -338,6 +338,65 @@ function ProductGridSkeleton() {
   );
 }
 
+function CampusChat({
+  name,
+  message,
+  messages,
+  isSending,
+  onNameChange,
+  onMessageChange,
+  onSubmit,
+}: {
+  name: string;
+  message: string;
+  messages: SiteMessage[];
+  isSending: boolean;
+  onNameChange: (name: string) => void;
+  onMessageChange: (message: string) => void;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  return (
+    <section className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-3xl border border-border bg-card p-3 shadow-lg">
+      <div className="mb-3 flex items-center gap-2 font-semibold">
+        <MessageCircle className="size-4 text-secondary" /> Campus Chat
+      </div>
+      <div className="max-h-52 space-y-2 overflow-y-auto rounded-2xl bg-muted p-3">
+        {messages.length > 0 ? (
+          messages.map((item) => (
+            <div key={item.id} className="rounded-2xl bg-card p-2 text-sm">
+              <p className="font-semibold">{item.name}</p>
+              <p className="text-muted-foreground">{item.message}</p>
+            </div>
+          ))
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">No messages yet.</p>
+        )}
+      </div>
+      <form onSubmit={onSubmit} className="mt-3 grid gap-2">
+        <input
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          maxLength={40}
+          placeholder="Your name"
+          className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
+        />
+        <div className="flex gap-2">
+          <input
+            value={message}
+            onChange={(event) => onMessageChange(event.target.value)}
+            maxLength={240}
+            placeholder="Message everyone..."
+            className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
+          />
+          <Button type="submit" size="icon" variant="energetic" disabled={isSending || !message.trim()}>
+            {isSending ? <Loader2 className="animate-spin" /> : <Send />}
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: boolean; onWatch: () => void }) {
   return (
     <article className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -368,7 +427,7 @@ function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: 
             </Link>
             <p className="mt-1 text-sm text-muted-foreground">{item.dorm}</p>
           </div>
-          <p className="text-lg font-bold">${item.price}</p>
+          <p className="text-lg font-bold">{item.price === 0 ? "Free" : `$${item.price}`}</p>
         </div>
         <div className="flex items-center justify-between gap-3">
           <Badge variant="outline">{item.category}</Badge>
