@@ -3,6 +3,7 @@ import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 export type MarketplaceItem = Tables<"marketplace_items">;
 export type MarketplaceItemInsert = TablesInsert<"marketplace_items">;
+export type MarketplaceStatus = "published" | "sold" | "removed";
 
 const MARKETPLACE_COLUMNS =
   "id,user_id,title,price,category,condition,dorm,seller,phone,description,image_url,status,created_at,updated_at";
@@ -12,6 +13,16 @@ export async function fetchMarketplaceItems() {
     .from("marketplace_items")
     .select(MARKETPLACE_COLUMNS)
     .eq("status", "published")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchAllMarketplaceItems() {
+  const { data, error } = await supabase
+    .from("marketplace_items")
+    .select(MARKETPLACE_COLUMNS)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -41,7 +52,7 @@ export async function createMarketplaceItem(item: MarketplaceItemInsert) {
   return data;
 }
 
-export async function updateMarketplaceItemStatus(id: string, status: "sold" | "removed") {
+export async function updateMarketplaceItemStatus(id: string, status: MarketplaceStatus) {
   const { data, error } = await supabase
     .from("marketplace_items")
     .update({ status })
