@@ -153,11 +153,12 @@ function SellPage() {
                   value={price}
                   onChange={(event) => setPrice(event.target.value)}
                   type="number"
-                  min="1"
+                  min="0"
                   step="0.01"
-                  placeholder="35"
+                  placeholder="0 for free"
                   className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
                 />
+                <p className="text-xs text-muted-foreground">Use 0 if you want to give it away free.</p>
               </label>
 
               <label className="space-y-2">

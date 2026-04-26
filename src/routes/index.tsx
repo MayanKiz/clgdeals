@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, ImageIcon, Search, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
+import { Heart, ImageIcon, Loader2, MessageCircle, Search, Send, ShieldCheck, SlidersHorizontal, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TopProgressBar } from "@/components/top-progress-bar";
 import { categories, type Category } from "@/data-campus-trade";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
+import {
+  createSiteMessage,
+  fetchMarketplaceItems,
+  fetchSiteMessages,
+  type MarketplaceItem,
+  type SiteMessage,
+} from "@/lib/marketplace";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -39,6 +45,10 @@ function Index() {
   const [watchedItems, setWatchedItems] = useState<string[]>(() => readWatchlist());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [messages, setMessages] = useState<SiteMessage[]>([]);
+  const [chatName, setChatName] = useState("Student");
+  const [chatMessage, setChatMessage] = useState("");
+  const [isChatSending, setIsChatSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +85,27 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
+    async function loadMessages() {
+      const data = await fetchSiteMessages();
+      if (mounted) setMessages(data);
+    }
+
+    loadMessages();
+
+    const channel = supabase
+      .channel("campus-chat")
+      .on("postgres_changes", { event: "*", schema: "public", table: "site_messages" }, () => loadMessages())
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem("campus-trade-watchlist", JSON.stringify(watchedItems));
   }, [watchedItems]);
 
@@ -100,6 +131,19 @@ function Index() {
     setWatchedItems((current) =>
       current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId],
     );
+  }
+
+  async function handleChatSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!chatMessage.trim()) return;
+    setIsChatSending(true);
+
+    try {
+      await createSiteMessage(chatName, chatMessage);
+      setChatMessage("");
+    } finally {
+      setIsChatSending(false);
+    }
   }
 
   return (
@@ -198,6 +242,15 @@ function Index() {
           )}
         </div>
       </section>
+      <CampusChat
+        name={chatName}
+        message={chatMessage}
+        messages={messages}
+        isSending={isChatSending}
+        onNameChange={setChatName}
+        onMessageChange={setChatMessage}
+        onSubmit={handleChatSubmit}
+      />
     </main>
   );
 }
@@ -285,6 +338,65 @@ function ProductGridSkeleton() {
   );
 }
 
+function CampusChat({
+  name,
+  message,
+  messages,
+  isSending,
+  onNameChange,
+  onMessageChange,
+  onSubmit,
+}: {
+  name: string;
+  message: string;
+  messages: SiteMessage[];
+  isSending: boolean;
+  onNameChange: (name: string) => void;
+  onMessageChange: (message: string) => void;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  return (
+    <section className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-3xl border border-border bg-card p-3 shadow-lg">
+      <div className="mb-3 flex items-center gap-2 font-semibold">
+        <MessageCircle className="size-4 text-secondary" /> Campus Chat
+      </div>
+      <div className="max-h-52 space-y-2 overflow-y-auto rounded-2xl bg-muted p-3">
+        {messages.length > 0 ? (
+          messages.map((item) => (
+            <div key={item.id} className="rounded-2xl bg-card p-2 text-sm">
+              <p className="font-semibold">{item.name}</p>
+              <p className="text-muted-foreground">{item.message}</p>
+            </div>
+          ))
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">No messages yet.</p>
+        )}
+      </div>
+      <form onSubmit={onSubmit} className="mt-3 grid gap-2">
+        <input
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          maxLength={40}
+          placeholder="Your name"
+          className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
+        />
+        <div className="flex gap-2">
+          <input
+            value={message}
+            onChange={(event) => onMessageChange(event.target.value)}
+            maxLength={240}
+            placeholder="Message everyone..."
+            className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none ring-ring focus:ring-2"
+          />
+          <Button type="submit" size="icon" variant="energetic" disabled={isSending || !message.trim()}>
+            {isSending ? <Loader2 className="animate-spin" /> : <Send />}
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: boolean; onWatch: () => void }) {
   return (
     <article className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -315,7 +427,7 @@ function ItemCard({ item, watched, onWatch }: { item: MarketplaceItem; watched: 
             </Link>
             <p className="mt-1 text-sm text-muted-foreground">{item.dorm}</p>
           </div>
-          <p className="text-lg font-bold">${item.price}</p>
+          <p className="text-lg font-bold">{item.price === 0 ? "Free" : `$${item.price}`}</p>
         </div>
         <div className="flex items-center justify-between gap-3">
           <Badge variant="outline">{item.category}</Badge>
