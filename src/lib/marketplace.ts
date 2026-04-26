@@ -41,6 +41,47 @@ export async function createMarketplaceItem(item: MarketplaceItemInsert) {
   return data;
 }
 
+export async function updateMarketplaceItemStatus(id: string, status: "sold" | "removed") {
+  const { data, error } = await supabase
+    .from("marketplace_items")
+    .update({ status })
+    .eq("id", id)
+    .select(MARKETPLACE_COLUMNS)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export type SiteMessage = {
+  id: string;
+  name: string;
+  message: string;
+  created_at: string;
+};
+
+export async function fetchSiteMessages() {
+  const { data, error } = await (supabase as any)
+    .from("site_messages")
+    .select("id,name,message,created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+  return (data ?? []).reverse() as SiteMessage[];
+}
+
+export async function createSiteMessage(name: string, message: string) {
+  const { data, error } = await (supabase as any)
+    .from("site_messages")
+    .insert({ name: name.trim() || "Student", message: message.trim() })
+    .select("id,name,message,created_at")
+    .single();
+
+  if (error) throw error;
+  return data as SiteMessage;
+}
+
 export async function uploadMarketplacePhoto(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const filePath = `public/${crypto.randomUUID()}.${extension}`;
